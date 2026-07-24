@@ -1,0 +1,4 @@
+interface:
+  display_name: "工程职业成长"
+  short_description: "路由项目价值评估与需求实现引导，沉淀工程能力和求职价值"
+  default_prompt: "Use $career-skills to evaluate this project or guide this feature requirement as a career-growth exercise."

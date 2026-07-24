@@ -1,0 +1,4 @@
+interface:
+  display_name: "需求帮助"
+  short_description: "分级引导需求分析、实现计划、项目价值评估与学习复盘"
+  default_prompt: "Use $requirement-helper to analyze this feature requirement, choose the right mode, and guide implementation planning, value judgment, testing, and learning review."

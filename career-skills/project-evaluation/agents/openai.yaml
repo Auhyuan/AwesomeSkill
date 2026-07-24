@@ -1,0 +1,4 @@
+interface:
+  display_name: "项目评估"
+  short_description: "评估项目学习价值、技术深度、技术广度、成长空间和求职价值"
+  default_prompt: "Use $project-evaluation to evaluate this project for learning value, technical depth, and job-search impact."
