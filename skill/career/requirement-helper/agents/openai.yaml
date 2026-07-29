@@ -1,0 +1,4 @@
+interface:
+  display_name: "需求分析与交付助手"
+  short_description: "分层分析软件需求，并在明确授权后引导或自动完成实现与验证"
+  default_prompt: "使用 $requirement-helper 先只读分析这个软件需求，给出价值、方案与风险判断，并在适合执行时让我选择 Manual 或 Automatic。"
