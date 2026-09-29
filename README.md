@@ -148,6 +148,8 @@ python3 skill/career/P-SOP/scripts/package_plugin.py
 
 使用少量持续维护的文档记录当前目标、需求与验收条件、技术方案、任务、检查结果和剩余事项。默认以 `PROJECT-STATE.md` 保存当前快照，以 `psop/REQ`、`psop/DEV`、`psop/DEV/DATA`、`psop/OPS` 按需组织资料；已有项目可复用原来的文件名称、位置与格式。
 
+产物生成与验证分别授权。独立审查、测试、构建、工具检查和页面预览须由用户明确要求或批准最小验证方案后执行；每项默认一次，通过或能力不足即停止，扩展范围及复测需有明确授权。未执行如实记录，不因质量门禁擅自补跑验证，也不默认生成截图和预览副本。
+
 用户需要进度页面时，直接使用本 Skill 目录内置的看板规则与模板，生成自包含、可离线查看的 `psop/PROJECT-DASHBOARD.html`，无需额外安装独立看板 Skill。该页面展示当前项目事实、证据入口与状态，支持部分和模块折叠。本地文件使用可复制的高亮路径，页面内导航及已核对的网页来源可以保留链接。
 
 详细规则见 [接入与恢复](skill/career/P-SOP/references/adoption-recovery.md)、[流程与门禁](skill/career/P-SOP/references/workflow.md)、[产物与维护](skill/career/P-SOP/references/artifacts.md) 和 [内置看板规则](skill/career/P-SOP/references/dashboard-generation.md)。
