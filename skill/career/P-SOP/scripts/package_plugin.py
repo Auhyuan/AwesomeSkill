@@ -14,7 +14,7 @@ BOARD_ROOT = SOP_ROOT.parent / "p-sop-build-pp"
 PROJECT_ROOT = SOP_ROOT.parents[2]
 MANIFEST = {
     "name": "p-sop",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "项目开发 SOP 与可独立使用的项目进度看板。",
     "author": {"name": "Auhyuan"},
     "skills": "./skills/",
@@ -47,20 +47,16 @@ def read_skill(root):
     return {source.relative_to(root).as_posix(): source.read_bytes() for source in skill_files(root)}
 
 
-def bundled_sop(board):
-    entries = read_skill(SOP_ROOT)
-    source_link = "../p-sop-build-pp/SKILL.md"
-    instructions = entries["SKILL.md"].decode("utf-8")
-    if instructions.count(source_link) != 1:
-        raise ValueError("P-SOP dashboard entry changed; check packaging before release")
-    entries["SKILL.md"] = instructions.replace(source_link, "references/dashboard-generation.md").encode("utf-8")
-
-    rules, count = re.subn(r"\A---\n.*?\n---\n", "", board["SKILL.md"].decode("utf-8"), count=1, flags=re.S)
-    if count != 1 or rules.count("(assets/dashboard-template.html)") != 1:
-        raise ValueError("dashboard rules changed; check packaging before release")
-    entries["references/dashboard-generation.md"] = rules.replace("(assets/dashboard-template.html)", "(../assets/dashboard-template.html)").encode("utf-8")
-    entries["assets/dashboard-template.html"] = board["assets/dashboard-template.html"].decode("utf-8").replace("../SKILL.md", "../references/dashboard-generation.md").encode("utf-8")
-    return entries
+def sync_dashboard_resources(check=False):
+    # P-SOP owns the source; the standalone shortcut carries generated copies.
+    resources = ("references/dashboard-generation.md", "assets/dashboard-template.html")
+    copies = [(BOARD_ROOT / relative, (SOP_ROOT / relative).read_bytes()) for relative in resources]
+    stale = [(path, data) for path, data in copies if not path.is_file() or path.read_bytes() != data]
+    if check and stale:
+        raise ValueError("standalone dashboard resources are stale; run this script with --sync-only")
+    for path, data in stale:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
 
 
 def plugin_entries(sop, board):
@@ -98,7 +94,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("all", "skills", "plugin"), default="all", help="default: both standalone skill archives and the plugin")
     parser.add_argument("--output", help="plugin ZIP path inside the repository's tmp/; standalone ZIPs use the same directory")
+    sync = parser.add_mutually_exclusive_group()
+    sync.add_argument("--sync-only", action="store_true", help="sync standalone dashboard resources from P-SOP without creating archives")
+    sync.add_argument("--check-sync", action="store_true", help="check resource copies without changing any files")
     args = parser.parse_args()
+    if args.sync_only or args.check_sync:
+        if args.output:
+            parser.error("--output cannot be combined with a sync-only operation")
+        try:
+            sync_dashboard_resources(check=args.check_sync)
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
+        print("Dashboard resources are synchronized.")
+        return
     if args.format == "skills" and args.output:
         parser.error("--output is for the plugin archive; omit it with --format skills")
     output = (PROJECT_ROOT / (args.output or "tmp/p-sop.zip")).resolve()
@@ -106,8 +114,9 @@ def main():
         parser.error("output must be a .zip file inside the repository's tmp/ directory")
 
     try:
+        sync_dashboard_resources()
+        sop = read_skill(SOP_ROOT)
         board = read_skill(BOARD_ROOT)
-        sop = bundled_sop(board)
         archives = []
         if args.format in ("all", "skills"):
             for name, files in (("p-sop", sop), ("p-sop-build-pp", board)):
