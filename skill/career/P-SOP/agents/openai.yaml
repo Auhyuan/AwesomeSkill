@@ -1,0 +1,4 @@
+interface:
+  display_name: "P-SOP 项目开发规范"
+  short_description: "规范项目开发、已有项目接入与恢复，维护精简且人类可读的项目资料"
+  default_prompt: "使用 $p-sop 核对当前项目，按已有确认与授权建立或接续开发流程，并维护精简的项目状态与资料。"
