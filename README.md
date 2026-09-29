@@ -1,4 +1,4 @@
-# AwesomeSkill
+# DevHIM
 
 面向软件开发与职业成长的 AI Agent Skill 集合，帮助开发者评估项目价值、分析和交付需求，以及维护可接续的项目开发流程。
 
