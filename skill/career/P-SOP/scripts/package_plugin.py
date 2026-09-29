@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Bundle the two maintained skills as a p-sop plugin; never generate dashboards."""
+"""Package self-contained P-SOP skills and a plugin from one dashboard source."""
 
 import argparse
 import json
 import re
+import tempfile
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -13,7 +14,7 @@ BOARD_ROOT = SOP_ROOT.parent / "p-sop-build-pp"
 PROJECT_ROOT = SOP_ROOT.parents[2]
 MANIFEST = {
     "name": "p-sop",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "项目开发 SOP 与可独立使用的项目进度看板。",
     "author": {"name": "Auhyuan"},
     "skills": "./skills/",
@@ -40,38 +41,85 @@ def skill_files(root):
                 yield path
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", default="tmp/p-sop.zip", help="ZIP path inside this repository's tmp/")
-    args = parser.parse_args()
-    output = (PROJECT_ROOT / args.output).resolve()
-    if not output.is_relative_to((PROJECT_ROOT / "tmp").resolve()) or output.suffix != ".zip":
-        parser.error("output must be a .zip file inside the repository's tmp/ directory")
+def read_skill(root):
+    if not (root / "SKILL.md").is_file():
+        raise ValueError(f"missing skill entry: {root / 'SKILL.md'}")
+    return {source.relative_to(root).as_posix(): source.read_bytes() for source in skill_files(root)}
 
+
+def bundled_sop(board):
+    entries = read_skill(SOP_ROOT)
+    source_link = "../p-sop-build-pp/SKILL.md"
+    instructions = entries["SKILL.md"].decode("utf-8")
+    if instructions.count(source_link) != 1:
+        raise ValueError("P-SOP dashboard entry changed; check packaging before release")
+    entries["SKILL.md"] = instructions.replace(source_link, "references/dashboard-generation.md").encode("utf-8")
+
+    rules, count = re.subn(r"\A---\n.*?\n---\n", "", board["SKILL.md"].decode("utf-8"), count=1, flags=re.S)
+    if count != 1 or rules.count("(assets/dashboard-template.html)") != 1:
+        raise ValueError("dashboard rules changed; check packaging before release")
+    entries["references/dashboard-generation.md"] = rules.replace("(assets/dashboard-template.html)", "(../assets/dashboard-template.html)").encode("utf-8")
+    entries["assets/dashboard-template.html"] = board["assets/dashboard-template.html"].decode("utf-8").replace("../SKILL.md", "../references/dashboard-generation.md").encode("utf-8")
+    return entries
+
+
+def plugin_entries(sop, board):
     entries = {}
-    for root, name in ((SOP_ROOT, "p-sop"), (BOARD_ROOT, "build-pp")):
-        if not (root / "SKILL.md").is_file():
-            parser.error(f"missing skill entry: {root / 'SKILL.md'}")
-        for source in skill_files(root):
-            relative = source.relative_to(root).as_posix()
-            data = source.read_bytes()
-            if name == "p-sop" and relative == "SKILL.md":
-                data = data.decode("utf-8").replace("../p-sop-build-pp/SKILL.md", "../build-pp/SKILL.md").encode("utf-8")
-            elif name == "build-pp" and relative == "SKILL.md":
+    for files, name in ((sop, "p-sop"), (board, "build-pp")):
+        for relative, data in files.items():
+            if name == "build-pp" and relative == "SKILL.md":
                 text, count = re.subn(r"(?m)^name: p-sop-build-pp$", "name: build-pp", data.decode("utf-8"), count=1)
                 if count != 1:
-                    parser.error("dashboard skill name changed; check plugin packaging before release")
+                    raise ValueError("dashboard skill name changed; check plugin packaging before release")
                 data = text.encode("utf-8")
             elif name == "build-pp" and relative == "agents/openai.yaml":
                 data = data.decode("utf-8").replace("$p-sop-build-pp", "$build-pp").encode("utf-8")
             entries[f"p-sop/skills/{name}/{relative}"] = data
 
     entries["p-sop/.codex-plugin/plugin.json"] = (json.dumps(MANIFEST, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    return entries
+
+
+def write_archive(output, entries):
     output.parent.mkdir(parents=True, exist_ok=True)
-    with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
-        for path, data in sorted(entries.items()):
-            archive.writestr(path, data)
-    print(f"Plugin archive: {output}")
+    with tempfile.NamedTemporaryFile(dir=output.parent, suffix=".zip.tmp", delete=False) as file:
+        temporary = Path(file.name)
+    try:
+        with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
+            for path, data in sorted(entries.items()):
+                archive.writestr(path, data)
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f"Archive: {output}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--format", choices=("all", "skills", "plugin"), default="all", help="default: both standalone skill archives and the plugin")
+    parser.add_argument("--output", help="plugin ZIP path inside the repository's tmp/; standalone ZIPs use the same directory")
+    args = parser.parse_args()
+    if args.format == "skills" and args.output:
+        parser.error("--output is for the plugin archive; omit it with --format skills")
+    output = (PROJECT_ROOT / (args.output or "tmp/p-sop.zip")).resolve()
+    if not output.is_relative_to((PROJECT_ROOT / "tmp").resolve()) or output.suffix != ".zip":
+        parser.error("output must be a .zip file inside the repository's tmp/ directory")
+
+    try:
+        board = read_skill(BOARD_ROOT)
+        sop = bundled_sop(board)
+        archives = []
+        if args.format in ("all", "skills"):
+            for name, files in (("p-sop", sop), ("p-sop-build-pp", board)):
+                archives.append((output.parent / f"{name}-skill.zip", {f"{name}/{path}": data for path, data in files.items()}))
+        if args.format in ("all", "plugin"):
+            archives.append((output, plugin_entries(sop, board)))
+        if len({path for path, _ in archives}) != len(archives):
+            parser.error("plugin output must not overwrite a standalone skill archive")
+    except (ValueError, KeyError, OSError) as error:
+        parser.error(str(error))
+    for path, entries in archives:
+        write_archive(path, entries)
 
 
 if __name__ == "__main__":

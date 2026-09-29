@@ -22,7 +22,7 @@
 - 希望知道“项目做到哪了、接下来做什么、如何接续或交接”，使用 `p-sop`。
 - 只希望“用现有资料生成或更新进度看板”，使用 `p-sop-build-pp`。
 
-这些能力可以独立使用，也可以配合：先评估项目，再由 P-SOP 管理项目流程，在具体需求上使用 requirement-helper 分析与交付。P-SOP 提供流程骨架，专项 Skill 负责对应的分析和实施工作。主流程需要看板时复用独立看板 Skill 的规则与模板。
+这些能力可以独立使用，也可以配合：先评估项目，再由 P-SOP 管理项目流程，在具体需求上使用 requirement-helper 分析与交付。P-SOP 提供流程骨架，专项 Skill 负责对应的分析和实施工作。P-SOP 与独立看板共用一份维护源码，发布时各自携带完整的看板规则与模板。
 
 ## 快速开始
 
@@ -37,7 +37,9 @@ cd AwesomeSkill
 
 打开上方索引中的 `SKILL.md`，确认其适用场景和执行规则。若所用 Agent 支持安装 Skill，按该工具的约定放置所选 Skill 的完整目录；保留 `references/`、`assets/` 和 `agents/` 等已有配套文件，保证相对引用可用。
 
-仅安装看板能力时，安装 `p-sop-build-pp/` 的完整目录即可。主 P-SOP 的流程可独立使用；若还需要看板，同时安装看板 Skill，或使用下方包含两者的插件包。仓库内容更新不会自动更新已复制到个人 Skill 目录的旧版本。
+P-SOP 与看板推荐使用下方生成的完整安装包：解压 `p-sop-skill.zip` 后安装其中的 `p-sop/`，或解压 `p-sop-build-pp-skill.zip` 后安装其中的 `p-sop-build-pp/`。只安装 P-SOP 即可使用完整流程和看板；只安装看板即可独立生成页面，无需 P-SOP。两个包均不要求另一个 Skill 存在。
+
+仓库中的 `P-SOP/` 是维护源码目录，看板资料在打包时从唯一源码带入；完整安装 P-SOP 使用安装包。独立看板源码目录本身已完整，也可直接安装。仓库内容更新不会自动更新已复制到个人 Skill 目录的旧版本。
 
 也可以直接让 Agent 阅读仓库中的 Skill 文件，并按其中规则处理任务。例如，在本仓库中：
 
@@ -93,17 +95,29 @@ cd AwesomeSkill
 只更新看板，展示已知进度、可折叠模块、验证缺口与高亮文件路径。
 ```
 
-### 4. 打包 P-SOP 插件（可选）
+### 4. 构建完整安装包与插件包
 
-若需要以 `p-sop` 命名空间分组安装主流程和看板，从仓库根目录运行：
+从仓库根目录运行：
 
 ```bash
 python3 skill/career/P-SOP/scripts/package_plugin.py
 ```
 
-产出 `tmp/p-sop.zip`，包含插件清单，以及 `skills/p-sop/` 和 `skills/build-pp/` 两个可识别的 Skill。脚本仅封装这两份源码，并适配包内名称与引用；不读取业务项目、不解析文档、不生成看板，也不修改已安装的 Skill 或插件配置。打包物可随时删除或重新生成。
+默认生成以下文件：
 
-按所用 Agent 的插件安装方式加载该包后，选择 `p-sop` 下的 `build-pp` 看板能力。支持命名空间斜杠入口的宿主可使用 `/p-sop:build-pp`；具体可见名称以安装后的菜单为准，打包成功不代表已安装或命令已注册。普通 Skill 安装仍使用 `$p-sop-build-pp`。可参考 [官方插件封装说明](https://developers.openai.com/plugins/build/plugins) 与 [技能调用说明](https://learn.chatgpt.com/docs/reference/slash-commands)。
+| 文件 | 包内入口 | 安装后可用能力 |
+| --- | --- | --- |
+| `tmp/p-sop-skill.zip` | `p-sop/SKILL.md` | 完整 P-SOP，包括内置看板能力 |
+| `tmp/p-sop-build-pp-skill.zip` | `p-sop-build-pp/SKILL.md` | 独立看板，无需安装 P-SOP |
+| `tmp/p-sop.zip` | 插件清单与 `skills/` | 在同一个插件中提供主流程与独立看板两个入口 |
+
+只需要两份 Skill 安装包时使用 `--format skills`；只需要插件时使用 `--format plugin`。原有 `--output tmp/其他名称.zip` 可指定插件路径，独立 Skill ZIP 写到同一目录；输出仅允许位于仓库根目录 `tmp/`。
+
+看板规则的唯一维护入口为 `skill/career/p-sop-build-pp/SKILL.md`，模板为其中的 `assets/dashboard-template.html`。打包工具将规则正文和模板带入 P-SOP 的 `references/dashboard-generation.md` 与 `assets/dashboard-template.html`，调整本包内引用；独立看板包携带原规则和模板。两个包解压后均可独立迁移，引用不会越出各自 Skill 目录。插件中的两个 Skill 同样各自完整。
+
+脚本只封装维护源码，不读取业务项目、不解析文档、不生成看板，也不修改已安装的 Skill 或插件配置。生成目录中的规则和模板随源码重新打包更新，不作为第二份维护源码；打包物可随时删除或重新生成。
+
+若选择插件安装，将 `p-sop.zip` 解压为插件目录，按所用 Agent 的插件来源登记、安装与启用流程加载；随后选择 `p-sop` 下的 `build-pp` 看板能力。支持命名空间斜杠入口的宿主可使用 `/p-sop:build-pp`；具体可见名称以安装后的菜单为准，打包成功不代表已安装或命令已注册。普通 Skill 安装分别使用 `$p-sop` 与 `$p-sop-build-pp`。可参考 [官方插件封装说明](https://developers.openai.com/plugins/build/plugins) 与 [技能调用说明](https://learn.chatgpt.com/docs/reference/slash-commands)。
 
 该包不依赖 MCP、后台服务或自定义文件打开协议。已安装旧版主 Skill 时，选择一种安装方式，避免同时加载旧版、独立版和插件版造成入口或规则混淆。
 
@@ -132,7 +146,7 @@ python3 skill/career/P-SOP/scripts/package_plugin.py
 
 使用少量持续维护的文档记录当前目标、需求与验收条件、技术方案、任务、检查结果和剩余事项。默认以 `PROJECT-STATE.md` 保存当前快照，以 `psop/REQ`、`psop/DEV`、`psop/DEV/DATA`、`psop/OPS` 按需组织资料；已有项目可复用原来的文件名称、位置与格式。
 
-用户需要进度页面时，复用独立看板 Skill 生成自包含、可离线查看的 `psop/PROJECT-DASHBOARD.html`。该页面展示当前项目事实、证据入口与状态，支持部分和模块折叠。本地文件使用可复制的高亮路径，页面内导航及已核对的网页来源可以保留链接。
+用户需要进度页面时，使用安装包内置的看板规则与模板，生成自包含、可离线查看的 `psop/PROJECT-DASHBOARD.html`，无需额外安装独立看板 Skill。该页面展示当前项目事实、证据入口与状态，支持部分和模块折叠。本地文件使用可复制的高亮路径，页面内导航及已核对的网页来源可以保留链接。
 
 详细规则见 [接入与恢复](skill/career/P-SOP/references/adoption-recovery.md)、[流程与门禁](skill/career/P-SOP/references/workflow.md)、[产物与维护](skill/career/P-SOP/references/artifacts.md) 和 [独立看板 Skill](skill/career/p-sop-build-pp/SKILL.md)。
 
@@ -178,7 +192,7 @@ AwesomeSkill/
 - `references/`：按具体任务加载的详细规则与参考说明。
 - `assets/`：可复用模板与流程图。
 - `agents/openai.yaml`：Agent 界面配置，包含显示名称、简短说明与默认提示词。
-- `scripts/package_plugin.py`：P-SOP 插件发行封装；生成的 ZIP 位于仓库根目录 `tmp/`，不作为第二份维护源码。
+- `scripts/package_plugin.py`：两份完整 Skill 安装包及可选插件的发行封装；生成的 ZIP 位于仓库根目录 `tmp/`，不作为第二份维护源码。
 
 ## 使用原则
 
